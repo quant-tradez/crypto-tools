@@ -9,7 +9,7 @@ from config import api_key, api_secret
 from util import progressbar
 
 
-def main():
+def main(ticker_suffix: str, start_str: str):
     client = Client(
         api_key=api_key,
         api_secret=api_secret
@@ -18,8 +18,6 @@ def main():
         client=client,
         suffix='USDT'
     )
-    start_str = "2 day ago UTC"
-    ticker_suffix = "USDT"
     print('python scanner.py --ticker_suffix: \'{}\' --start_str: \'{}\'\n'.format(ticker_suffix, start_str))
 
     open_time = ''
@@ -62,4 +60,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    main()
+    main(
+        start_str=args.start_str,
+        ticker_suffix=args.ticker_suffix
+    )
