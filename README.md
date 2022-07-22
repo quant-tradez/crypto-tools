@@ -35,7 +35,7 @@ pip install -r requirements.txt
 ```
 - All ready. Run it ! 
 ```
-python scanner.py
+python scanner.py --ticker_suffix 'USDT' --start_str '1 day ago UTC'
 ```
 
 ![Preview](https://github.com/quant-tradez/crypto-tools/blob/master/screenshots/screenshot.png)

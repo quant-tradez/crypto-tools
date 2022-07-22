@@ -16,7 +16,7 @@ def main(ticker_suffix: str, start_str: str):
     )
     symbols: List[str] = get_all_symbols(
         client=client,
-        suffix='USDT'
+        suffix=None if ticker_suffix == '' else ticker_suffix
     )
     print('python scanner.py --ticker_suffix: \'{}\' --start_str: \'{}\'\n'.format(ticker_suffix, start_str))
 
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     parser.add_argument(
         "--ticker_suffix",
         help="Ticker suffix to filter ticker that end with a currency.",
-        default="USDT"
+        default=""
     )
 
     args = parser.parse_args()
