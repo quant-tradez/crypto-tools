@@ -7,6 +7,7 @@ from typing import List, Dict
 
 from binance import Client
 from binance.enums import HistoricalKlinesType
+from dacite import from_dict
 
 from application.symbol_stats import calculate_symbol_stats
 from config import api_key, api_secret
@@ -40,21 +41,26 @@ def scan_n_days_ago(
         ticker_suffix,
         min_relative_volume
     ))
+    if os.path.exists(file_path):
+        print('{} already exists. loading file...'.format(file_path))
+        with open(file_path, mode='r') as file:
+            data = json.load(file)
+            all_symbol_stats = from_dict(data_class=SymbolStatsDict, data=data)
+    else:
+        all_symbol_stats: SymbolStatsDict = calculate_all_symbol_stats(
+            client=client,
+            kline_type=kline_type,
+            min_relative_volume=min_relative_volume,
+            min_percent_change=min_percent_change,
+            n_days_ago=n_days_ago,
+            relative_volume_days=relative_volume_days,
+            symbols=symbols
+        )
 
-    all_symbol_stats: Dict[str, SymbolStats] = calculate_all_symbol_stats(
-        client=client,
-        kline_type=kline_type,
-        min_relative_volume=min_relative_volume,
-        min_percent_change=min_percent_change,
-        n_days_ago=n_days_ago,
-        relative_volume_days=relative_volume_days,
-        symbols=symbols
-    )
+    print_stats(all_symbol_stats.stats)
+    save_stats_json(file_path, all_symbol_stats.stats)
 
-    print_stats(all_symbol_stats)
-    save_stats_json(file_path, all_symbol_stats)
-
-    return SymbolStatsDict(stats=all_symbol_stats)
+    return all_symbol_stats
 
 
 def calculate_all_symbol_stats(
@@ -65,7 +71,7 @@ def calculate_all_symbol_stats(
         n_days_ago: int,
         relative_volume_days: int,
         symbols: List[str]
-):
+) -> SymbolStatsDict:
     all_symbol_stats: Dict[str, SymbolStats] = {}
     for i in progressbar(range(len(symbols)), "Fetching candles for all tickers: ", 40):
         symbol = symbols[i]
@@ -87,7 +93,7 @@ def calculate_all_symbol_stats(
         for k, v in reversed(sorted(all_symbol_stats.items(), key=lambda item: item[1].percent_change))
     }
 
-    return sorted_symbol_stats
+    return SymbolStatsDict(sorted_symbol_stats)
 
 
 def print_stats(sorted_symbol_stats):
@@ -98,7 +104,6 @@ def print_stats(sorted_symbol_stats):
             round(v.percent_change * 100, 2),
             round(v.relative_volume, 2)
         ))
-    print('\n')
 
 
 def save_stats_json(file_path, sorted_symbol_stats):
@@ -107,7 +112,7 @@ def save_stats_json(file_path, sorted_symbol_stats):
     with open(file_path, 'w+') as file:
         json_stats = dataclasses.asdict(SymbolStatsDict(stats=sorted_symbol_stats))
         json.dump(obj=json_stats, fp=file, indent=4)
-        print('wrote stats in file: {}\n'.format(file_path))
+        print('wrote stats in file: {}'.format(file_path))
 
 
 if __name__ == '__main__':
@@ -151,7 +156,6 @@ if __name__ == '__main__':
     print('\n')
     print((datetime.datetime.today() - datetime.timedelta(days=args.n_days_ago)).date())
     print(args)
-    print('\n')
 
     scan_n_days_ago(
         n_days_ago=args.n_days_ago,

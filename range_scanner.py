@@ -54,7 +54,7 @@ if __name__ == '__main__':
         print((datetime.datetime.today() - datetime.timedelta(days=i)).date())
         print('\n')
 
-        scan_n_days_ago(
+        symbol_stats_for_day = scan_n_days_ago(
             n_days_ago=i,
             ticker_suffix=args.ticker_suffix,
             kline_type=HistoricalKlinesType.FUTURES if args.type == "FUTURES" else HistoricalKlinesType.SPOT,
