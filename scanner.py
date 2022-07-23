@@ -119,12 +119,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A scanner that sorts crypto by percent changes.')
     parser.add_argument(
         "--n_days_ago",
-        help="N days ago",
+        help="N days ago (default 1)",
         default=1
     )
     parser.add_argument(
         "--ticker_suffix",
-        help="Ticker suffix to filter ticker that end with a currency.",
+        help="Ticker suffix to filter ticker that end with a currency. (empty by default)",
         default=""
     )
 
@@ -148,7 +148,7 @@ if __name__ == '__main__':
 
     parser.add_argument(
         "--type",
-        help="SPOT or FUTURES",
+        help="SPOT or FUTURES (default SPOT)",
         default="SPOT"
     )
 

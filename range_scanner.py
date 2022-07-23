@@ -3,7 +3,7 @@ import datetime
 
 from binance.enums import HistoricalKlinesType
 
-from scanner import scan_n_days_ago
+from scanner import scan_n_days_ago, print_stats
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A scanner that sorts crypto by percent changes.')
@@ -49,7 +49,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     print(args)
 
-    for i in range(int(args.n_days_ago_start), int(args.n_days_ago_end + 1)):
+    symbol_stats_for_all_days = {}
+    for i in reversed(list(range(int(args.n_days_ago_start), int(args.n_days_ago_end + 1)))):
         print('\n')
         print((datetime.datetime.today() - datetime.timedelta(days=i)).date())
         print('\n')
@@ -62,3 +63,17 @@ if __name__ == '__main__':
             min_relative_volume=float(args.min_relative_volume),
             min_percent_change=float(args.min_percent_change)
         )
+
+        for symbol, stats in symbol_stats_for_day.stats.items():
+            symbol_stats_for_all_days[symbol] = stats
+
+    sorted_symbol_stats_all_days = {
+        k: v
+        for k, v in reversed(sorted(symbol_stats_for_all_days.items(), key=lambda item: item[1].percent_change))
+    }
+
+    print('\nFinal list from {} to {}.'.format(
+        (datetime.datetime.today() - datetime.timedelta(days=int(args.n_days_ago_start))).date(),
+        (datetime.datetime.today() - datetime.timedelta(days=int(args.n_days_ago_end))).date()
+    ))
+    print_stats(sorted_symbol_stats_all_days)
