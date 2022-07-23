@@ -1,15 +1,29 @@
-from typing import List
 import argparse
+import dataclasses
+import datetime
+import json
+import os
+from typing import List, Dict
 
 from binance import Client
+from binance.enums import HistoricalKlinesType
 
-from domain.candle import Candle
-from infrastructure.binance_api_client import get_all_symbols, get_historical_candles_for_symbol
+from application.symbol_stats import calculate_symbol_stats
 from config import api_key, api_secret
+from domain.symbol_stats import SymbolStats
+from domain.symbol_stats_dict import SymbolStatsDict
+from infrastructure.binance_api_client import get_all_symbols
 from util import progressbar
 
 
-def main(ticker_suffix: str, start_str: str):
+def scan_n_days_ago(
+        ticker_suffix: str = "USDT",
+        n_days_ago: int = 1,
+        kline_type: HistoricalKlinesType = HistoricalKlinesType.FUTURES,
+        relative_volume_days: int = 10,
+        min_relative_volume: float = 1,
+        min_percent_change: float = 0
+) -> SymbolStatsDict:
     client = Client(
         api_key=api_key,
         api_secret=api_secret
@@ -18,39 +32,90 @@ def main(ticker_suffix: str, start_str: str):
         client=client,
         suffix=None if ticker_suffix == '' else ticker_suffix
     )
-    print('python scanner.py --ticker_suffix: \'{}\' --start_str: \'{}\'\n'.format(ticker_suffix, start_str))
 
-    open_time = ''
-    symbol_percent_change = {}
+    stats_datetime = datetime.datetime.today() - datetime.timedelta(days=n_days_ago)
+    file_path = os.path.join('cache', '{}_{}_{}_{}.json'.format(
+        stats_datetime.date(),
+        kline_type,
+        ticker_suffix,
+        min_relative_volume
+    ))
+
+    all_symbol_stats: Dict[str, SymbolStats] = calculate_all_symbol_stats(
+        client=client,
+        kline_type=kline_type,
+        min_relative_volume=min_relative_volume,
+        min_percent_change=min_percent_change,
+        n_days_ago=n_days_ago,
+        relative_volume_days=relative_volume_days,
+        symbols=symbols
+    )
+
+    print_stats(all_symbol_stats)
+    save_stats_json(file_path, all_symbol_stats)
+
+    return SymbolStatsDict(stats=all_symbol_stats)
+
+
+def calculate_all_symbol_stats(
+        client: Client,
+        kline_type: HistoricalKlinesType,
+        min_relative_volume: float,
+        min_percent_change: float,
+        n_days_ago: int,
+        relative_volume_days: int,
+        symbols: List[str]
+):
+    all_symbol_stats: Dict[str, SymbolStats] = {}
     for i in progressbar(range(len(symbols)), "Fetching candles for all tickers: ", 40):
         symbol = symbols[i]
-        candles: List[Candle] = get_historical_candles_for_symbol(
+        symbol_stats = calculate_symbol_stats(
             client=client,
             symbol=symbol,
-            kline_interval=Client.KLINE_INTERVAL_1DAY,
-            start_str=start_str
+            n_days_ago=n_days_ago,
+            relative_volume_days=relative_volume_days,
+            min_relative_volume=min_relative_volume,
+            min_percent_change=min_percent_change,
+            kline_type=kline_type
         )
-        if len(candles) > 0:
-            open_time = candles[0].open_time
-            symbol_percent_change[symbol] = (candles[0].close - candles[0].open) / candles[0].open
 
-    sorted_symbol_percent_change = {
+        if symbol_stats is not None:
+            all_symbol_stats[symbol] = symbol_stats
+
+    sorted_symbol_stats = {
         k: v
-        for k, v in reversed(sorted(symbol_percent_change.items(), key=lambda item: item[1]))
+        for k, v in reversed(sorted(all_symbol_stats.items(), key=lambda item: item[1].percent_change))
     }
 
-    print(open_time)
+    return sorted_symbol_stats
+
+
+def print_stats(sorted_symbol_stats):
     print('\n')
-    for k, v in sorted_symbol_percent_change.items():
-        print('{}: {}%'.format(k, round(v * 100, 2)))
+    for k, v in sorted_symbol_stats.items():
+        print('{}: {}% RVOL {}'.format(
+            k,
+            round(v.percent_change * 100, 2),
+            round(v.relative_volume, 2)
+        ))
+    print('\n')
+
+
+def save_stats_json(file_path, sorted_symbol_stats):
+    if not os.path.exists('cache'):
+        os.mkdir('cache')
+    with open(file_path, 'w+') as file:
+        json_stats = dataclasses.asdict(SymbolStatsDict(stats=sorted_symbol_stats))
+        json.dump(obj=json_stats, fp=file, indent=4)
+        print('wrote stats in file: {}\n'.format(file_path))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A scanner that sorts crypto by percent changes.')
     parser.add_argument(
-        "--start_str",
-        help="Start date string in utc format or timestamp in milliseconds.",
-        default="2 days ago UTC"
+        "--n_days_ago",
+        help="N days ago",
+        default=1
     )
     parser.add_argument(
         "--ticker_suffix",
@@ -58,9 +123,41 @@ if __name__ == '__main__':
         default=""
     )
 
-    args = parser.parse_args()
+    parser.add_argument(
+        "--relative_volume_days",
+        help="The amount of days used to calculate relative volume. (default 10)",
+        default=10
+    )
 
-    main(
-        start_str=args.start_str,
-        ticker_suffix=args.ticker_suffix
+    parser.add_argument(
+        "--min_relative_volume",
+        help="Min relative volume for ticker. (default 3)",
+        default=3
+    )
+
+    parser.add_argument(
+        "--min_percent_change",
+        help="Min percent change for ticker. (default 0)",
+        default=0
+    )
+
+    parser.add_argument(
+        "--type",
+        help="SPOT or FUTURES",
+        default="SPOT"
+    )
+
+    args = parser.parse_args()
+    print('\n')
+    print((datetime.datetime.today() - datetime.timedelta(days=args.n_days_ago)).date())
+    print(args)
+    print('\n')
+
+    scan_n_days_ago(
+        n_days_ago=args.n_days_ago,
+        ticker_suffix=args.ticker_suffix,
+        kline_type=HistoricalKlinesType.FUTURES if args.type == "FUTURES" else HistoricalKlinesType.SPOT,
+        relative_volume_days=int(args.relative_volume_days),
+        min_relative_volume=float(args.min_relative_volume),
+        min_percent_change=float(args.min_percent_change)
     )
