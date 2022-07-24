@@ -61,7 +61,7 @@ if __name__ == '__main__':
             kline_type=HistoricalKlinesType.FUTURES if args.type == "FUTURES" else HistoricalKlinesType.SPOT,
             relative_volume_days=args.relative_volume_days,
             min_relative_volume=float(args.min_relative_volume),
-            min_percent_change=float(args.min_percent_change)
+            min_percent_change=float(args.min_percent_change) / 100
         )
 
         for symbol, stats in symbol_stats_for_day.stats.items():
