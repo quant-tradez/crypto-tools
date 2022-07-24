@@ -35,11 +35,12 @@ def scan_n_days_ago(
     )
 
     stats_datetime = datetime.datetime.today() - datetime.timedelta(days=n_days_ago)
-    file_path = os.path.join('cache', '{}_{}_{}_{}.json'.format(
+    file_path = os.path.join('cache', '{}_{}_{}_{}_{}.json'.format(
         stats_datetime.date(),
         kline_type,
         ticker_suffix,
-        min_relative_volume
+        min_relative_volume,
+        min_percent_change
     ))
     if os.path.exists(file_path):
         print('{} already exists. loading file...'.format(file_path))
