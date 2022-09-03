@@ -31,6 +31,9 @@ def calculate_symbol_stats(
     if candles is None or len(candles) < relative_volume_days:
         return None
 
+    if len(candles) - 1 < relative_volume_days:
+        return None
+
     stats_day_candle = candles[relative_volume_days]
     average_volume = sum([c.volume for c in candles[0:relative_volume_days]]) / len(candles)
     if stats_day_candle.volume == 0 or average_volume == 0:
